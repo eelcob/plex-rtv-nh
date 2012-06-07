@@ -15,7 +15,7 @@ ICON_SEARCH    = 'icon-search.png'
 ICON_PREFS     = 'icon-prefs.png'
 
 base	= 'http://www.rtvnh.nl'
-uzgurl	= 'http://www.rtvnh.nl/uitzending-gemist'
+uzgurl	= base + '/uitzending-gemist'
 streamerbase = 'rtmp://stream.rtvnh.nl/vod'
 art		= 'art-rtvnh.png',
 icon	= 'icon-rtvnh.png'
