@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
-import re, urllib2, os
+import re, os
 from string import ascii_uppercase
-from BeautifulSoup import BeautifulSoup
-import urllib
-from urllib2 import HTTPError
-import httplib
 
 
 PLUGIN_TITLE   = 'RTV NH gemist'
@@ -16,10 +12,9 @@ ICON_PREFS     = 'icon-prefs.png'
 
 base	= 'http://www.rtvnh.nl'
 uzgurl	= base + '/uitzending-gemist'
-streamerbase = 'rtmp://stream.rtvnh.nl/vod'
+streamerbase = 'rtmp://stream.rtvnh.nl/vod/'
 art		= 'art-rtvnh.png',
 icon	= 'icon-rtvnh.png'
-
 
 ###################################################################################################
 def Start():
@@ -34,7 +29,7 @@ def Start():
 	DirectoryItem.thumb = R(ICON)
 	WebVideoItem.thumb = R(ICON)
 	VideoItem.thumb = R(ICON)
-
+	
 	HTTP.CacheTime = 300
 	HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:5.0) Gecko/20100101 Firefox/5.0'
 
@@ -65,85 +60,61 @@ def getpas7days(sender, title):
 def BrowseByDay(sender, date):
 	dir = MediaContainer(title='programma overzicht')
 	
-	opener = urllib2.build_opener()
-	opener.addheaders = [('User-agent', 'Mozilla/5.0)')]
-	params = urllib.urlencode({'program_date': date})
-	#sectionnum = "1"
-	#a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
-	#p  = os.popen(a)
-	#s = p.readlines()
-	#p.close()
-	try:
-		infile = opener.open(uzgurl, params)
-	except HTTPError, e:
-		Log.Debug('e')
-		data = ""
-	else:
-		data = infile.read()
-	
-	soup = BeautifulSoup(data, convertEntities=BeautifulSoup.HTML_ENTITIES, smartQuotesTo="xml")	
-	videos = soup.findAll('div', {'class' : 'info-text'})
-	
-	for video in videos:
-		label = video.h3.a.contents[0]
-		label = label.strip()
-		link = base + video.h3.a['href']
-		clip = getflash(sender, link=link)
-		image = getimage(sender, link=link)
-		image = base + image
-		dir.Append(Function(VideoItem(PlayVideo, title=label, thumb=Function(Thumb, url=image)), clip=clip))
+	result = {}
 
+	params = {'program_date': date}
+	@parallelize
+	def GetVideos():
+
+		html = HTML.ElementFromURL(uzgurl, values=params)
+		videos = html.xpath('//div[starts-with(@class, "info-text")]')
+		
+		for num in range(len(videos)):
+			video = videos[num]
+			
+			@task
+			def GetVideo(num = num, result = result, video = video):
+				try:
+					video_url = video.xpath('./h3/a')[0].get('href')
+					label = video.xpath('./h3/a')[0].text
+					label = label.strip()
+					clip = getflash(sender, link=video_url)
+					image = getimage(sender, link=video_url)
+					image = base + image
+					result[num] = VideoItem(Function(PlayVideo, title=label, clip=clip), title=label, thumb=Function(Thumb, url=image), clip=clip)
+				except:
+					Log("Couldn't add clip from %s" % video_url)
+					pass
+	
+	keys = result.keys()
+	keys.sort()
+  
+	for key in keys:
+		dir.Append(result[key])
+		
 	return dir
 
 ###################################################################################################
 def getflash(sender, link):
-# TODO FIX fix regexp to see if we don't need to strip
-	opener = urllib2.build_opener()
-	opener.addheaders = [('User-agent', 'Mozilla/5.0)')]
-	#sectionnum = "1"
-	#a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
-	#p  = os.popen(a)
-	#s = p.readlines()
-	#p.close()
-	try:
-		infile = opener.open(link)
-	except HTTPError, e:
-		Log.Debug('e')
-		data = ""
-	else:
-		data = infile.read()
-	
-	pattern_clip = ": '(.*?)\.mp4',"
-	clip = re.findall(pattern_clip, data)
-	clip = str(clip).strip('[\'\']')
+# TODO FIX fix regexp to see if we don't need to [0]
+	link = base + link
+	content = HTTP.Request(link, cacheTime=0).content
+	clip = re.compile(': \'(.*?)\.mp4\',').findall(content, re.DOTALL)
+	clip = str(clip[0])
 	return clip
 
 ###################################################################################################
 def getimage(sender, link):
-# TODO FIX image regexp so i don't need to strip and add .jpg
-	opener = urllib2.build_opener()
-	opener.addheaders = [('User-agent', 'Mozilla/5.0)')]
-	sectionnum = "1"
-	a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
-	p  = os.popen(a)
-	s = p.readlines()
-	p.close()
-	try:
-		infile = opener.open(link)
-	except HTTPError, e:
-		Log.Debug('e')
-		data = ""
-	else:
-		data = infile.read()
-	
-	pattern_image = "'image': '(.*?)\.jpg',"
-	image = re.findall(pattern_image, data)
-	image = str(image).strip('[\'\']')
+## TODO FIX image regexp so i don't need to strip and add .jpg
+	link = base + link
+	content = HTTP.Request(link, cacheTime=0).content
+	image = re.compile(': \'(.*?)\.jpg\',').findall(content, re.DOTALL)
+	image = str(image[0])
 	image = image + '.jpg'
 	return image
 	
 ###################################################################################################
-def PlayVideo(sender, clip):
+def PlayVideo(sender, title, clip):
 	playclip = 'mp4:' + clip
 	
 	return Redirect(RTMPVideoURL(streamerbase, playclip))
