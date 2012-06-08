@@ -67,12 +67,12 @@ def BrowseByDay(sender, date):
 	
 	opener = urllib2.build_opener()
 	opener.addheaders = [('User-agent', 'Mozilla/5.0)')]
-	sectionnum = "1"
 	params = urllib.urlencode({'program_date': date})
-	a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
-	p  = os.popen(a)
-	s = p.readlines()
-	p.close()
+	#sectionnum = "1"
+	#a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
+	#p  = os.popen(a)
+	#s = p.readlines()
+	#p.close()
 	try:
 		infile = opener.open(uzgurl, params)
 	except HTTPError, e:
@@ -100,11 +100,11 @@ def getflash(sender, link):
 # TODO FIX fix regexp to see if we don't need to strip
 	opener = urllib2.build_opener()
 	opener.addheaders = [('User-agent', 'Mozilla/5.0)')]
-	sectionnum = "1"
-	a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
-	p  = os.popen(a)
-	s = p.readlines()
-	p.close()
+	#sectionnum = "1"
+	#a = "/Applications/Plex\ Media\ Server.app/Contents/MacOS/Plex\ Media\ Scanner -t -c %s | grep -Ev '    ' | sed '/Season/d' | sed '/Specials/d' | cut -f1 -d'['" % sectionnum
+	#p  = os.popen(a)
+	#s = p.readlines()
+	#p.close()
 	try:
 		infile = opener.open(link)
 	except HTTPError, e:
